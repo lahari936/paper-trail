@@ -1,0 +1,18 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: papertrail
+      POSTGRES_PASSWORD: papertrail
+      POSTGRES_DB: papertrail
+    ports:
+      - "54329:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U papertrail"]
+      interval: 2s
+      retries: 15
+
+volumes:
+  pgdata:
