@@ -3,7 +3,7 @@
 Ask Alexa+ about your household paperwork: warranties, insurance, leases, subscriptions and bills.
 PaperTrail is an MCP server (spec 2025-11-25, Streamable HTTP) that Alexa+ calls as an add-on.
 
-> Status: Phase 2. Local MCP server plus a Textract and Bedrock extraction pipeline with grounding checks. See [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md).
+> Status: Phase 3. Local MCP server, a Textract and Bedrock extraction pipeline with grounding checks, and grounded Q&A with citations. See [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md).
 
 ## Run locally
 
@@ -55,6 +55,17 @@ uv run --env-file .env pytest tests/test_extraction.py -s
 ```
 
 `seed/labels.json` and the seed PDFs come from `seed/load.py`. Regenerate them together with `uv run python -m seed.make_docs`.
+
+## Q&A with citations (Phase 3)
+
+`ask_documents` runs hybrid retrieval. If the question clearly names one document ("my car insurance"), the search is limited to that document. It then takes the top 6 chunks by Titan V2 vector search and merges in the chunks behind the best keyword-matching sentences. A Haiku-class model (`BEDROCK_QA_MODEL_ID`) answers from those sources only. Every citation's quote has to match its source text, and with no verified citation the tool answers "I couldn't find that in your documents."
+
+When `BEDROCK_QA_MODEL_ID` is unset, `ask_documents` quotes the best keyword sentence instead, so local development works offline.
+
+```bash
+uv run --env-file .env python -m server.retrieval    # embed chunks that have no embedding yet (e.g. after seed.load)
+uv run --env-file .env python -m tests.qa_eval       # 10 scripted questions, including 2 that must be refused
+```
 
 ## Tools
 

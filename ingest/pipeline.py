@@ -10,23 +10,19 @@ from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 
-import boto3
 import pymupdf
 from sqlalchemy import delete
 
 from ingest.prompts import CLASSIFY, EXTRACT, SYSTEM, format_pages
 from ingest.schemas import SCHEMAS, Classification
 from ingest.validate import AMOUNT_FIELDS, DATE_FIELDS, INT_FIELDS, validate
-from server.config import AWS_REGION, BEDROCK_EXTRACT_MODEL_ID, DEMO_USER_ID
+from server.bedrock import client, converse_tool, embed
+from server.config import BEDROCK_EXTRACT_MODEL_ID, DEMO_USER_ID
 from server.db import Chunk, Document, Reminder, Session, init_db
 
 CHUNK_CHARS = 3200  # ~800 tokens
 CHUNK_OVERLAP = 400
 RENDER_DPI = 200
-
-
-def _client(service: str) -> Any:
-    return boto3.client(service, region_name=AWS_REGION)
 
 
 def page_images(path: Path) -> list[bytes]:
@@ -41,7 +37,7 @@ def ocr(path: Path) -> list[str]:
     """Textract AnalyzeDocument (FORMS, TABLES) per page; returns the LINE text of each page."""
     # ponytail: one sync call per page. Avoids the S3 + async job polling that StartDocumentAnalysis needs;
     # switch to async when documents run past ~20 pages.
-    textract = _client("textract")
+    textract = client("textract")
     pages = []
     for image in page_images(path):
         resp = textract.analyze_document(Document={"Bytes": image}, FeatureTypes=["FORMS", "TABLES"])
@@ -50,20 +46,9 @@ def ocr(path: Path) -> list[str]:
 
 
 def _converse_tool(prompt: str, name: str, schema: dict[str, Any]) -> dict[str, Any]:
-    """Call Bedrock Converse forcing one tool call, and return the tool input (structured output)."""
     if not BEDROCK_EXTRACT_MODEL_ID:
         sys.exit("Set BEDROCK_EXTRACT_MODEL_ID (see `aws bedrock list-inference-profiles`).")
-    resp = _client("bedrock-runtime").converse(
-        modelId=BEDROCK_EXTRACT_MODEL_ID,
-        system=[{"text": SYSTEM}],
-        messages=[{"role": "user", "content": [{"text": prompt}]}],
-        inferenceConfig={"temperature": 0, "maxTokens": 4096},
-        toolConfig={
-            "tools": [{"toolSpec": {"name": name, "inputSchema": {"json": schema}}}],
-            "toolChoice": {"tool": {"name": name}},
-        },
-    )
-    return next(c["toolUse"]["input"] for c in resp["output"]["message"]["content"] if "toolUse" in c)
+    return converse_tool(BEDROCK_EXTRACT_MODEL_ID, SYSTEM, prompt, name, schema)
 
 
 def classify(pages: list[str]) -> Classification:
@@ -136,7 +121,7 @@ def store(path: Path, pages: list[str], doc_type: str, clean: dict[str, Any], is
         doc = to_document(clean, issues, doc_type, source)
         s.add(doc)
         s.flush()
-        s.add_all(Chunk(document_id=doc.id, page=p, text=t) for p, t in chunk(pages))
+        s.add_all(Chunk(document_id=doc.id, page=p, text=t, embedding=embed(t)) for p, t in chunk(pages))
         s.add_all(
             Reminder(user_id=DEMO_USER_ID, document_id=doc.id, due_at=datetime.combine(d, time(9), UTC), kind=k)
             for d, k in default_reminders(doc)

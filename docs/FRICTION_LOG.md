@@ -15,3 +15,8 @@
 - **Textract sync vs async.** Sync `AnalyzeDocument` accepts one page and won't take a multi-page PDF. Async `StartDocumentAnalysis` needs the file in S3 plus job polling. The CLI renders each PDF page to PNG with PyMuPDF and makes one sync call per page, so local runs need no S3.
 - **Structured output on Bedrock.** The Converse API has no JSON mode, so extraction forces a single tool call (`toolChoice: {tool: ...}`) whose `inputSchema` is the Pydantic model's JSON schema. The `$defs` refs that Pydantic emits are accepted.
 - **Model IDs.** Newer Claude models on Bedrock have to be called through a cross-region inference profile (`us.anthropic...`), not the bare model ID. They also have to be enabled per account under Model access first.
+
+## Phase 3
+
+- **Titan V2 embeddings** take `dimensions` (256/512/1024) and `normalize` in the request body. With `normalize: true`, pgvector cosine distance ranks the same as dot product.
+- **Grounding the Q&A model.** Asking the model for `found` plus verbatim citation quotes, then fuzzy-checking each quote against its source chunk, gives a cheap hallucination guard. Any answer without a verified citation turns into a refusal.

@@ -1,9 +1,7 @@
 """PaperTrail MCP tools. Every tool returns {answer, evidence, followups}; Alexa+ speaks `answer`."""
 
-import math
 import re
 import uuid
-from collections import Counter
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any, Literal
 
@@ -11,8 +9,9 @@ from mcp.server.mcpserver import MCPServer
 from rapidfuzz import fuzz, utils
 from sqlalchemy import select
 
-from server.config import DEMO_USER_ID
-from server.db import Chunk, Document, Reminder, Session
+from server.config import BEDROCK_QA_MODEL_ID, DEMO_USER_ID
+from server import retrieval
+from server.db import Document, Reminder, Session
 
 DocType = Literal["warranty", "insurance", "lease", "subscription", "bill", "other"]
 Result = dict[str, Any]
@@ -42,10 +41,6 @@ ISSUE_SYNONYMS = {
     "juice": "liquid", "rain": "liquid", "flood": "liquid", "dropped": "drop", "fell": "drop",
     "cracked": "crack", "scratch": "cosmetic", "scratched": "cosmetic", "dent": "cosmetic",
     "stolen": "theft", "lost": "loss",
-}
-STOPWORDS = {
-    "a", "an", "and", "are", "can", "do", "does", "for", "from", "how", "i", "in", "is", "it", "me", "much", "my",
-    "of", "on", "or", "say", "says", "the", "to", "what", "when", "where", "which", "who", "will", "with",
 }
 GENERIC_WORDS = {"damage", "damaged", "the", "and", "for", "from", "caused", "with", "got", "has", "was", "its", "it", "on"}
 
@@ -142,11 +137,6 @@ def _doc_by_id_or_query(document_id: str | None, query: str | None) -> tuple[Doc
     return doc, None
 
 
-def _terms(s: str) -> set[str]:
-    """Lowercase keywords with a crude plural strip, for ask_documents ranking."""
-    return {w.removesuffix("s") if len(w) > 3 else w for w in re.findall(r"[a-z0-9]+", s.lower()) if w not in STOPWORDS}
-
-
 def _tokens(s: str) -> set[str]:
     words = re.findall(r"[a-z]+", s.lower())
     return {ISSUE_SYNONYMS.get(w, w) for w in words if len(w) > 2 and w not in GENERIC_WORDS}
@@ -237,33 +227,25 @@ def ask_documents(question: str, doc_type: DocType | None = None) -> Result:
     """Use for any other question about what the user's documents say: deductibles, claim contacts, policy
     numbers, terms, notice clauses, amounts ("what's my car insurance deductible?"). Optionally filter by
     `doc_type`. Answers only from the documents and says so when the answer isn't there."""
-    # ponytail: scans every chunk of the user's and ranks sentences by IDF-weighted keyword overlap. Fine for a
-    # household's few dozen documents; Phase 3 swaps in hybrid vector retrieval and a Haiku answer.
-    query_terms = _terms(question)
-    stmt = select(Chunk, Document).join(Document).where(Document.user_id == _user())
-    if doc_type:
-        stmt = stmt.where(Document.doc_type == doc_type)
-    with Session() as s:
-        sentences = [
-            (doc, chunk.page, sent)
-            for chunk, doc in s.execute(stmt)
-            for sent in re.split(r"(?<=[.!?])\s+", chunk.text)
-        ]
-    sentence_terms = [_terms(sent) for _, _, sent in sentences]
-    df = Counter(t for terms in sentence_terms for t in terms)
-    scored = sorted(
-        (
-            (sum(math.log(len(sentences) / df[t]) for t in query_terms & terms), i)
-            for i, terms in enumerate(sentence_terms)
-            if query_terms & terms
-        ),
-        reverse=True,
-    )
-    if not scored:
+    types = (doc_type,) if doc_type else None
+    named, _ = _resolve(question, types)  # structured filter: stick to the one document the question names
+    doc_ids = [named.id] if named else None
+    if BEDROCK_QA_MODEL_ID:
+        result = retrieval.grounded_answer(question, retrieval.hybrid_search(question, _user(), doc_type, doc_ids))
+        if not result:
+            return _result("I couldn't find that in your documents.", followups=["What documents do I have?"])
+        answer, cited = result
+        return _result(answer, [_cite(h.doc, h.chunk.page, h.quote) for h in cited])
+
+    # Offline fallback (no Bedrock configured): quote the best keyword-matching sentence.
+    hits = retrieval.keyword_search(question, _user(), doc_type, doc_ids)
+    if not hits:
         return _result("I couldn't find that in your documents.", followups=["What documents do I have?"])
-    hits = [sentences[i] for _, i in scored[:3]]
-    doc, page, quote = hits[0]
-    return _result(f"Your {_name(doc)} says, on page {page}: {quote}", [_cite(d, p, q) for d, p, q in hits])
+    top = hits[0]
+    return _result(
+        f"Your {_name(top.doc)} says, on page {top.chunk.page}: {top.quote}",
+        [_cite(h.doc, h.chunk.page, h.quote) for h in hits],
+    )
 
 
 @mcp.tool()
