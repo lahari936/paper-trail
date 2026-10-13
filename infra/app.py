@@ -69,12 +69,18 @@ class PaperTrailStack(Stack):
         auth_domain = pool.add_domain("Domain", cognito_domain=cognito.CognitoDomainOptions(
             domain_prefix=self.node.try_get_context("cognito_prefix") or f"papertrail-{self.account}",
         ))
-        # Public client (no secret), authorization code + PKCE. Phase 5 adds the Alexa redirect URLs.
+        # Alexa+ sends `resource=<canonical URI>`; register it as a Cognito resource server so tokens bind to it.
+        mcp_scope = cognito.ResourceServerScope(scope_name="tools", scope_description="Use PaperTrail tools")
+        resource_server = pool.add_resource_server(
+            "McpResource", identifier=canonical_uri, scopes=[mcp_scope], user_pool_resource_server_name="PaperTrail MCP",
+        )
+        # Public client (no secret), authorization code + PKCE. Alexa redirect URLs go in -c extra_callbacks.
         app_client = pool.add_client(
             "McpClient", generate_secret=False, prevent_user_existence_errors=True,
             o_auth=cognito.OAuthSettings(
                 flows=cognito.OAuthFlows(authorization_code_grant=True),
-                scopes=[cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
+                scopes=[cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE,
+                        cognito.OAuthScope.resource_server(resource_server, mcp_scope)],
                 callback_urls=INSPECTOR_CALLBACKS + (self.node.try_get_context("extra_callbacks") or []),
             ),
         )
@@ -88,6 +94,7 @@ class PaperTrailStack(Stack):
         environment = {
             "COGNITO_USER_POOL_ID": pool.user_pool_id,
             "COGNITO_CLIENT_ID": app_client.user_pool_client_id,
+            "COGNITO_DOMAIN": auth_domain.base_url(),
             "MCP_CANONICAL_URI": canonical_uri,
             "S3_BUCKET": bucket.bucket_name,
             "DB_HOST": db.db_instance_endpoint_address,

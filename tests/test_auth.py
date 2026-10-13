@@ -43,3 +43,29 @@ def test_rejects_bad_tokens() -> None:
     assert verify(token(aud="https://other.example.com/mcp")) is None  # issued for another resource
     assert verify(token(sub=None)) is None
     assert verify("not-a-jwt") is None
+
+
+def test_authorization_server_metadata_for_alexa() -> None:
+    from server.auth import authorization_server_metadata, origin
+
+    assert origin("https://papertrail.example.com/mcp") == "https://papertrail.example.com"
+    md = authorization_server_metadata("https://papertrail.example.com", "https://pt.auth.us-east-1.amazoncognito.com")
+    assert md["issuer"] == "https://papertrail.example.com"
+    assert md["authorization_endpoint"] == "https://pt.auth.us-east-1.amazoncognito.com/oauth2/authorize"
+    assert "S256" in md["code_challenge_methods_supported"]
+
+
+def test_401_has_no_www_authenticate() -> None:
+    from server.app import without_www_authenticate
+
+    async def inner(scope, receive, send):  # type: ignore[no-untyped-def]
+        await send({"type": "http.response.start", "status": 401,
+                    "headers": [(b"www-authenticate", b"Bearer"), (b"content-type", b"application/json")]})
+
+    sent: list[dict] = []
+
+    async def send(message):  # type: ignore[no-untyped-def]
+        sent.append(message)
+
+    asyncio.run(without_www_authenticate(inner)({"type": "http"}, None, send))
+    assert sent[0]["headers"] == [(b"content-type", b"application/json")]

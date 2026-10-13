@@ -102,6 +102,25 @@ To check auth, open the MCP Inspector on `https://<domain>/mcp`. Choose OAuth, e
 
 Tear down after judging: `npx aws-cdk@2 destroy`.
 
+## Alexa+ add-on (Phase 5)
+
+The `alexa-ai` CLI is distributed through Amazon's private CodeArtifact registry. Using it requires an AWS account that Amazon has granted the `AddOn3PDeveloperToolsRead` role. Follow [Set Up Your Development Environment](https://developer.amazon.com/docs/alexaplus/add-ons/set-up-your-development-environment.html) on macOS, Ubuntu or WSL, then run:
+
+```bash
+alexa-ai configure
+cd alexa-addon && alexa-ai new mcp --name "PaperTrail" --locale en-US --mcp-server-url "https://<domain>/mcp"
+alexa-ai deploy
+```
+
+What the server does for Alexa+ auth:
+
+- 401 responses carry no `WWW-Authenticate` header.
+- RFC 9728 protected resource metadata is at `/.well-known/oauth-protected-resource/mcp`.
+- RFC 8414 metadata is at `/.well-known/oauth-authorization-server`. It lists `S256` and points at Cognito's hosted-UI endpoints, because Alexa+ doesn't use OIDC discovery.
+- A Cognito resource server is registered with the canonical MCP URI as its identifier, matching the `resource` parameter Alexa sends.
+
+Add Alexa's account-linking redirect URLs to the Cognito client with `-c extra_callbacks='["https://..."]'`.
+
 ## Tools
 
 | Tool | What it answers |

@@ -28,3 +28,11 @@
 - **DNS-rebinding protection in MCP SDK 2.x** allows only `localhost` Host headers by default. Behind the ALB the public domain has to go in `TransportSecuritySettings.allowed_hosts`, or every request fails.
 - **`ScheduledFargateTask` can't assign a public IP.** Without a NAT gateway, a task in a public subnet then can't pull its image. EventBridge Scheduler's `EcsRunFargateTask` target supports `assign_public_ip`, so the daily reminder job uses that. It runs on Fargate with the server image instead of a separately packaged Lambda.
 - **The CDK asset for the Docker build** honours `.dockerignore`. Without that file, the whole `.venv` would be uploaded as the build context.
+
+## Phase 5
+
+- **The Alexa AI CLI is gated.** `@alexa-ai/cli` installs from Amazon's private CodeArtifact registry. That needs an IAM user allowed to assume `arn:aws:iam::372468808636:role/AddOn3PDeveloperToolsRead`, which Amazon has to grant to your account. The docs list macOS and Ubuntu only, so on Windows use WSL.
+- **Alexa+ auth differs from plain MCP 2025-11-25 clients.**
+  - It wants 401s *without* `WWW-Authenticate`. The MCP spec allows that if the PRM is at the well-known URI, so the server strips the header the SDK adds.
+  - It wants RFC 8414 metadata at `/.well-known/oauth-authorization-server`, and it doesn't support OIDC discovery, DCR or CIMD. Cognito serves only OIDC discovery, so the MCP server publishes the RFC 8414 document itself, with its own origin as `issuer` and Cognito's `/oauth2/*` endpoints.
+- **500 ms latency target.** The DB-backed tools answer in about 100 ms. `ask_documents` with Bedrock (an embedding call plus a Haiku answer) will likely take longer than that.

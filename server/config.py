@@ -23,3 +23,4 @@ COGNITO_USER_POOL_ID: str = os.environ.get("COGNITO_USER_POOL_ID", "")
 COGNITO_CLIENT_IDS: list[str] = [c for c in os.environ.get("COGNITO_CLIENT_ID", "").split(",") if c]
 MCP_CANONICAL_URI: str = os.environ.get("MCP_CANONICAL_URI", "")
 SES_FROM: str = os.environ.get("SES_FROM", "")
+COGNITO_DOMAIN: str = os.environ.get("COGNITO_DOMAIN", "")  # hosted UI base, e.g. https://papertrail-123.auth.us-east-1.amazoncognito.com
