@@ -5,21 +5,26 @@ import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any, Literal
 
+from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.mcpserver import MCPServer
 from rapidfuzz import fuzz, utils
 from sqlalchemy import select
 
 from server.config import BEDROCK_QA_MODEL_ID, DEMO_USER_ID
 from server import retrieval
+from server.auth import auth_config
 from server.db import Document, Reminder, Session
 
 DocType = Literal["warranty", "insurance", "lease", "subscription", "bill", "other"]
 Result = dict[str, Any]
 
+_auth_settings, _token_verifier = auth_config()
 mcp = MCPServer(
     "PaperTrail",
     instructions="Answers questions about the user's household documents: warranties, insurance, leases, "
     "subscriptions and bills. Speak the `answer` field; `evidence` cites the source page.",
+    auth=_auth_settings,
+    token_verifier=_token_verifier,
 )
 
 MATCH_THRESHOLD = 85
@@ -48,7 +53,9 @@ GENERIC_WORDS = {"damage", "damaged", "the", "and", "for", "from", "caused", "wi
 # ---------- helpers ----------
 
 def _user() -> str:
-    return DEMO_USER_ID  # Phase 4: user id from the validated Cognito token
+    """The Cognito `sub` of the caller; DEMO_USER_ID when auth is off (local dev, tests)."""
+    token = get_access_token()
+    return token.subject if token and token.subject else DEMO_USER_ID
 
 
 def _number(n: int) -> str:

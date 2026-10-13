@@ -20,3 +20,11 @@
 
 - **Titan V2 embeddings** take `dimensions` (256/512/1024) and `normalize` in the request body. With `normalize: true`, pgvector cosine distance ranks the same as dot product.
 - **Grounding the Q&A model.** Asking the model for `found` plus verbatim citation quotes, then fuzzy-checking each quote against its source chunk, gives a cheap hallucination guard. Any answer without a verified citation turns into a refusal.
+
+## Phase 4
+
+- **Cognito as an MCP authorization server.** Cognito serves OIDC discovery (`/.well-known/openid-configuration`) but not RFC 8414 `oauth-authorization-server` metadata, and it has no Dynamic Client Registration. MCP 2025-11-25 clients fall back to OIDC discovery, and the client ID has to be pre-registered and entered by hand in the Inspector.
+- **No `aud` in Cognito access tokens** unless the client sends an RFC 8707 `resource` indicator. The verifier checks `client_id` and `token_use=access`, and checks `aud` only when it's present.
+- **DNS-rebinding protection in MCP SDK 2.x** allows only `localhost` Host headers by default. Behind the ALB the public domain has to go in `TransportSecuritySettings.allowed_hosts`, or every request fails.
+- **`ScheduledFargateTask` can't assign a public IP.** Without a NAT gateway, a task in a public subnet then can't pull its image. EventBridge Scheduler's `EcsRunFargateTask` target supports `assign_public_ip`, so the daily reminder job uses that. It runs on Fargate with the server image instead of a separately packaged Lambda.
+- **The CDK asset for the Docker build** honours `.dockerignore`. Without that file, the whole `.venv` would be uploaded as the build context.

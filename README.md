@@ -3,7 +3,7 @@
 Ask Alexa+ about your household paperwork: warranties, insurance, leases, subscriptions and bills.
 PaperTrail is an MCP server (spec 2025-11-25, Streamable HTTP) that Alexa+ calls as an add-on.
 
-> Status: Phase 3. Local MCP server, a Textract and Bedrock extraction pipeline with grounding checks, and grounded Q&A with citations. See [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md).
+> Status: Phase 4. Deployable to AWS with CDK: ECS Fargate behind HTTPS, RDS with pgvector, and Cognito OAuth on `/mcp`. See [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md).
 
 ## Run locally
 
@@ -66,6 +66,41 @@ When `BEDROCK_QA_MODEL_ID` is unset, `ask_documents` quotes the best keyword sen
 uv run --env-file .env python -m server.retrieval    # embed chunks that have no embedding yet (e.g. after seed.load)
 uv run --env-file .env python -m tests.qa_eval       # 10 scripted questions, including 2 that must be refused
 ```
+
+## Deploy to AWS (Phase 4)
+
+[infra/app.py](infra/app.py) is one CDK stack. It contains:
+
+- a VPC with no NAT gateway
+- RDS Postgres 17 (`db.t4g.micro`, pgvector)
+- the ECS Fargate MCP server (0.5 vCPU / 1 GB) behind an HTTPS ALB, with an ACM certificate on your domain
+- an S3 bucket
+- a Cognito user pool with an app client (authorization code + PKCE)
+- IAM permissions for Textract, Bedrock and SES
+- a daily EventBridge Scheduler job that runs `reminders.handler` on Fargate and emails due reminders through SES
+- a $30/month AWS Budget alert
+
+Prerequisites: AWS CLI credentials, Docker, Node, and a Route 53 hosted zone for your domain.
+
+```bash
+cd infra
+npx aws-cdk@2 bootstrap
+npx aws-cdk@2 deploy -c domain_name=papertrail.example.com -c hosted_zone_id=Z123 -c hosted_zone_name=example.com -c alert_email=you@example.com -c ses_from=you@example.com -c extract_model_id=us.anthropic.claude-sonnet-... -c qa_model_id=us.anthropic.claude-haiku-...
+```
+
+SES sends a verification email to `ses_from`. In the SES sandbox, recipients must be verified as well.
+
+Create the demo user and seed their documents. The stack outputs give the pool, cluster, task definition, subnets and security group.
+
+```bash
+aws cognito-idp admin-create-user --user-pool-id <UserPoolId> --username you@example.com --user-attributes Name=email,Value=you@example.com Name=email_verified,Value=true
+aws cognito-idp admin-get-user --user-pool-id <UserPoolId> --username you@example.com --query "UserAttributes[?Name=='sub'].Value" --output text
+aws ecs run-task --cluster <ClusterName> --task-definition <TaskDefinition> --launch-type FARGATE --network-configuration "awsvpcConfiguration={subnets=[<PublicSubnets>],securityGroups=[<TaskSecurityGroup>],assignPublicIp=ENABLED}" --overrides '{"containerOverrides":[{"name":"web","command":["python","-m","seed.load","<sub>"]}]}'
+```
+
+To check auth, open the MCP Inspector on `https://<domain>/mcp`. Choose OAuth, enter the `ClientId` output as the client ID, and use scopes `openid email profile`. The server serves RFC 9728 metadata at `/.well-known/oauth-protected-resource/mcp`, which points the Inspector at Cognito.
+
+Tear down after judging: `npx aws-cdk@2 destroy`.
 
 ## Tools
 

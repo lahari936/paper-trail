@@ -1,11 +1,12 @@
 """Insert synthetic seed documents with hand-written fields. Re-running replaces the demo user's data.
 
-Run: uv run python -m seed.load
+Run: uv run python -m seed.load [user_id]   (deployed: the Cognito `sub` of the demo user)
 
 Some dates are relative to today so the deadline radar always has something on it.
 All names, numbers and policies are synthetic.
 """
 
+import sys
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
@@ -247,19 +248,19 @@ def seed_documents(today: date) -> list[dict[str, Any]]:
     ]
 
 
-def main() -> None:
+def main(user_id: str = DEMO_USER_ID) -> None:
     init_db()
     with Session.begin() as s:
-        s.execute(delete(Reminder).where(Reminder.user_id == DEMO_USER_ID))
-        s.execute(delete(Document).where(Document.user_id == DEMO_USER_ID))
+        s.execute(delete(Reminder).where(Reminder.user_id == user_id))
+        s.execute(delete(Document).where(Document.user_id == user_id))
         for item in seed_documents(date.today()):
-            doc = Document(user_id=DEMO_USER_ID, **item["doc"])
+            doc = Document(user_id=user_id, **item["doc"])
             s.add(doc)
             s.flush()
             for page, page_text in enumerate(item["pages"], start=1):
                 s.add(Chunk(document_id=doc.id, page=page, text=page_text))
-    print(f"Seeded {len(seed_documents(date.today()))} documents for user '{DEMO_USER_ID}'.")
+    print(f"Seeded {len(seed_documents(date.today()))} documents for user '{user_id}'.")
 
 
 if __name__ == "__main__":
-    main()
+    main(*sys.argv[1:2])
