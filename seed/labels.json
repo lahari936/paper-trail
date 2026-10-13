@@ -1,0 +1,66 @@
+{
+  "seed/warranty_lg.pdf": {
+    "doc_type": "warranty",
+    "start_date": "2025-03-15",
+    "end_date": "2027-03-14",
+    "renewal_date": null,
+    "notice_days": null,
+    "amount": null
+  },
+  "seed/warranty_samsung.pdf": {
+    "doc_type": "warranty",
+    "start_date": "2024-06-01",
+    "end_date": "2028-05-31",
+    "renewal_date": null,
+    "notice_days": null,
+    "amount": "3499.00"
+  },
+  "seed/insurance_car.pdf": {
+    "doc_type": "insurance",
+    "start_date": "2025-11-02",
+    "end_date": "2026-11-02",
+    "renewal_date": "2026-11-02",
+    "notice_days": null,
+    "amount": "14200.00"
+  },
+  "seed/lease_maple.pdf": {
+    "doc_type": "lease",
+    "start_date": "2026-02-15",
+    "end_date": "2027-02-15",
+    "renewal_date": null,
+    "notice_days": "60",
+    "amount": "25000.00"
+  },
+  "seed/subscription_streamflix.pdf": {
+    "doc_type": "subscription",
+    "start_date": null,
+    "end_date": null,
+    "renewal_date": "2026-10-25",
+    "notice_days": null,
+    "amount": "649.00"
+  },
+  "seed/bill_electricity.pdf": {
+    "doc_type": "bill",
+    "start_date": null,
+    "end_date": "2026-10-10",
+    "renewal_date": null,
+    "notice_days": null,
+    "amount": "2340.00"
+  },
+  "seed/warranty_dell_adp.pdf": {
+    "doc_type": "warranty",
+    "start_date": "2025-08-01",
+    "end_date": "2027-07-31",
+    "renewal_date": null,
+    "notice_days": null,
+    "amount": "4999.00"
+  },
+  "seed/insurance_health.png": {
+    "doc_type": "insurance",
+    "start_date": null,
+    "end_date": "2027-03-31",
+    "renewal_date": null,
+    "notice_days": null,
+    "amount": null
+  }
+}

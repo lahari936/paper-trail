@@ -9,3 +9,9 @@
 - **Docker Desktop on Windows** sometimes doesn't start on the first launch. Relaunching it worked.
 - **Host port clashes.** Other local compose projects already held 5433 and 55432, so PaperTrail's DB uses 54329. `docker ps` shows who owns a port.
 - **`localhost` was slow on Windows.** psycopg tried `::1` first and waited before falling back to IPv4. Every DB call took seconds until `DATABASE_URL` pointed at `127.0.0.1`.
+
+## Phase 2
+
+- **Textract sync vs async.** Sync `AnalyzeDocument` accepts one page and won't take a multi-page PDF. Async `StartDocumentAnalysis` needs the file in S3 plus job polling. The CLI renders each PDF page to PNG with PyMuPDF and makes one sync call per page, so local runs need no S3.
+- **Structured output on Bedrock.** The Converse API has no JSON mode, so extraction forces a single tool call (`toolChoice: {tool: ...}`) whose `inputSchema` is the Pydantic model's JSON schema. The `$defs` refs that Pydantic emits are accepted.
+- **Model IDs.** Newer Claude models on Bedrock have to be called through a cross-region inference profile (`us.anthropic...`), not the bare model ID. They also have to be enabled per account under Model access first.

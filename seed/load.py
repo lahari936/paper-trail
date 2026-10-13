@@ -29,7 +29,7 @@ def seed_documents(today: date) -> list[dict[str, Any]]:
     return [
         {
             "doc": dict(
-                doc_type="warranty", title="LG Front Load Washing Machine Warranty Card", vendor="LG",
+                s3_key="seed/warranty_lg.pdf", doc_type="warranty", title="LG Front Load Washing Machine Warranty Card", vendor="LG",
                 item_name="washing machine", item_category="appliance",
                 start_date=date(2025, 3, 15), end_date=date(2027, 3, 14),
                 fields={
@@ -63,7 +63,7 @@ def seed_documents(today: date) -> list[dict[str, Any]]:
         },
         {
             "doc": dict(
-                doc_type="warranty", title="Samsung Refrigerator Extended Warranty", vendor="Samsung",
+                s3_key="seed/warranty_samsung.pdf", doc_type="warranty", title="Samsung Refrigerator Extended Warranty", vendor="Samsung",
                 item_name="refrigerator", item_category="appliance",
                 start_date=date(2024, 6, 1), end_date=date(2028, 5, 31),
                 amount=Decimal("3499.00"), currency="INR",
@@ -100,7 +100,7 @@ def seed_documents(today: date) -> list[dict[str, Any]]:
         },
         {
             "doc": dict(
-                doc_type="insurance", title="Acme Mutual Private Car Policy Schedule", vendor="Acme",
+                s3_key="seed/insurance_car.pdf", doc_type="insurance", title="Acme Mutual Private Car Policy Schedule", vendor="Acme",
                 item_name="car", item_category="vehicle",
                 start_date=car_start, end_date=car_renew, renewal_date=car_renew,
                 amount=Decimal("14200.00"), currency="INR", auto_renews=False,
@@ -131,7 +131,7 @@ def seed_documents(today: date) -> list[dict[str, Any]]:
         },
         {
             "doc": dict(
-                doc_type="lease", title="Maple Residency Rental Agreement", vendor="Maple Residency",
+                s3_key="seed/lease_maple.pdf", doc_type="lease", title="Maple Residency Rental Agreement", vendor="Maple Residency",
                 item_name="apartment", item_category="home",
                 start_date=lease_start, end_date=lease_end, notice_days=60,
                 amount=Decimal("25000.00"), currency="INR",
@@ -157,9 +157,9 @@ def seed_documents(today: date) -> list[dict[str, Any]]:
         },
         {
             "doc": dict(
-                doc_type="subscription", title="StreamFlix Premium Subscription Terms", vendor="StreamFlix",
+                s3_key="seed/subscription_streamflix.pdf", doc_type="subscription", title="StreamFlix Premium Subscription Terms", vendor="StreamFlix",
                 item_name="streaming", item_category="entertainment",
-                start_date=sub_renew - timedelta(days=365), renewal_date=sub_renew,
+                renewal_date=sub_renew,
                 amount=Decimal("649.00"), currency="INR", auto_renews=True,
                 fields={
                     "aliases": ["tv", "streaming service"], "plan": "Premium, annual",
@@ -177,9 +177,9 @@ def seed_documents(today: date) -> list[dict[str, Any]]:
         },
         {
             "doc": dict(
-                doc_type="bill", title="City Power Electricity Bill", vendor="City Power",
+                s3_key="seed/bill_electricity.pdf", doc_type="bill", title="City Power Electricity Bill", vendor="City Power",
                 item_name="electricity", item_category="utilities",
-                start_date=bill_due - timedelta(days=45), end_date=bill_due,
+                end_date=bill_due,
                 amount=Decimal("2340.00"), currency="INR",
                 fields={
                     "aliases": ["power bill", "electric bill"], "account_number": "SYN-EB-55001", "units": 312,
@@ -197,7 +197,7 @@ def seed_documents(today: date) -> list[dict[str, Any]]:
         },
         {
             "doc": dict(
-                doc_type="warranty", title="Dell Laptop Accidental Damage Protection Plan", vendor="Dell",
+                s3_key="seed/warranty_dell_adp.pdf", doc_type="warranty", title="Dell Laptop Accidental Damage Protection Plan", vendor="Dell",
                 item_name="laptop", item_category="electronics",
                 start_date=date(2025, 8, 1), end_date=date(2027, 7, 31),
                 amount=Decimal("4999.00"), currency="INR",
@@ -230,7 +230,7 @@ def seed_documents(today: date) -> list[dict[str, Any]]:
         },
         {
             "doc": dict(
-                doc_type="insurance", title="Evergreen Health Insurance Card", vendor="Evergreen",
+                s3_key="seed/insurance_health.png", doc_type="insurance", title="Evergreen Health Insurance Card", vendor="Evergreen",
                 item_name="health", item_category="health",
                 end_date=date(2027, 3, 31),
                 fields={

@@ -11,6 +11,8 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "pgvector>=0.3",
     "rapidfuzz>=3.9",
+    "boto3>=1.43.112",
+    "pymupdf>=1.28.2",
 ]
 
 [dependency-groups]

@@ -3,7 +3,7 @@
 Ask Alexa+ about your household paperwork: warranties, insurance, leases, subscriptions and bills.
 PaperTrail is an MCP server (spec 2025-11-25, Streamable HTTP) that Alexa+ calls as an add-on.
 
-> Status: Phase 1. Local MCP server with seed data and template answers. See [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md).
+> Status: Phase 2. Local MCP server plus a Textract and Bedrock extraction pipeline with grounding checks. See [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md).
 
 ## Run locally
 
@@ -29,6 +29,32 @@ uv run pytest
 ```
 
 Some seed dates are relative to the day you seed (for example, the car insurance renews in 20 days), so re-seed before a demo.
+
+## Ingest a document (Phase 2)
+
+Needs AWS credentials with Textract and Bedrock access, and a Bedrock model you've enabled in your region:
+
+```bash
+aws bedrock list-inference-profiles --region us-east-1 --query "inferenceProfileSummaries[].inferenceProfileId"
+```
+
+Copy `.env.example` to `.env` and set `BEDROCK_EXTRACT_MODEL_ID` (a Sonnet-class Claude inference profile). Then:
+
+```bash
+uv run --env-file .env python -m ingest.pipeline seed/warranty_lg.pdf --dry-run
+```
+
+Without `--dry-run`, the document is stored. It replaces an earlier ingest of the same file, and that includes the hand-written seed row.
+
+Pipeline: Textract `AnalyzeDocument` per page, then Bedrock Converse classifies the type and extracts fields with forced tool use at temperature 0. `ingest/validate.py` then checks that every date, amount and notice period has a `source_quote` that fuzzy-matches (90 or above) the cited page and actually states the value. Anything that fails is set to null and the document is marked `needs_review`.
+
+Extraction eval (calls AWS, about $1 per run):
+
+```bash
+uv run --env-file .env pytest tests/test_extraction.py -s
+```
+
+`seed/labels.json` and the seed PDFs come from `seed/load.py`. Regenerate them together with `uv run python -m seed.make_docs`.
 
 ## Tools
 
